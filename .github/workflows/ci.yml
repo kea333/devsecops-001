@@ -137,11 +137,8 @@ jobs:
       - name: Load Docker image
         run: docker load < weather-app.tar.gz
 
-      # exit-code 1 = fail pipeline on CRITICAL/HIGH
-      # ignore-unfixed = skip CVEs with no fix available yet
-      # vuln-type = scan both OS packages and app libraries
       - name: Run Trivy — container vulnerability scan
-        uses: aquasecurity/trivy-action@0.30.0
+        uses: aquasecurity/trivy-action@v0.36.0        # changed from v0.30.0 which had serious security flaw
         with:
           image-ref: weather-app:latest
           format: table
