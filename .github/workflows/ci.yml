@@ -2,9 +2,10 @@
 # Weather App – CI/CD Pipeline
 # Triggers: push to main, any pull request to main
 # Jobs:
-#   1. test     – run pytest suite
+#   1. test     – pytest suite
 #   2. security – bandit (code scan) + pip-audit (dependency scan)
-#   3. build    – build Docker image (only if 1 and 2 pass)
+#   3. build    – build Docker image, export as artifact
+#   4. trivy    – container vulnerability scan (only if build passes)
 # ============================================================
 
 name: CI Pipeline
@@ -54,8 +55,6 @@ jobs:
 
   # ──────────────────────────────────────────
   # JOB 2: Security Scan
-  # Runs after tests pass
-  # Blocks Docker build if issues found
   # ──────────────────────────────────────────
   security:
     name: Security Scan
@@ -74,22 +73,15 @@ jobs:
       - name: Install security tools
         run: pip install bandit pip-audit
 
-      # ── Bandit: Python code security scan ──
-      # -r         recursive scan
-      # -ll        fail on MEDIUM severity and above
-      # -v         verbose output
-      # --exclude  skip tests/ (test files intentionally use insecure patterns)
       - name: Run Bandit — code security scan
         run: bandit -r app.py -ll -v
 
-      # ── pip-audit: dependency vulnerability scan ──
-      # Checks requirements.txt against CVE databases
       - name: Run pip-audit — dependency vulnerability scan
         run: pip-audit -r requirements.txt
 
   # ──────────────────────────────────────────
   # JOB 3: Build Docker Image
-  # Only runs if BOTH test and security pass
+  # Saves image as tar artifact for Trivy
   # ──────────────────────────────────────────
   build:
     name: Build Docker Image
@@ -103,14 +95,57 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3.10.0
 
+      # load: true puts image into local Docker daemon
       - name: Build Docker image
         uses: docker/build-push-action@v6.16.0
         with:
           context: .
           push: false
+          load: true
           tags: weather-app:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Confirm build succeeded
-        run: echo "Docker image built successfully"
+      # Export image so Trivy job can load it
+      - name: Save Docker image as tar
+        run: docker save weather-app:latest | gzip > weather-app.tar.gz
+
+      # Upload tar for Trivy job — retained for 1 day only
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: weather-app-image
+          path: weather-app.tar.gz
+          retention-days: 1
+
+  # ──────────────────────────────────────────
+  # JOB 4: Trivy Container Scan
+  # Blocks pipeline on CRITICAL or HIGH CVEs
+  # Only runs if build passes
+  # ──────────────────────────────────────────
+  trivy:
+    name: Trivy Container Scan
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Download image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: weather-app-image
+
+      - name: Load Docker image
+        run: docker load < weather-app.tar.gz
+
+      # exit-code 1 = fail pipeline on CRITICAL/HIGH
+      # ignore-unfixed = skip CVEs with no fix available yet
+      # vuln-type = scan both OS packages and app libraries
+      - name: Run Trivy — container vulnerability scan
+        uses: aquasecurity/trivy-action@0.30.0
+        with:
+          image-ref: weather-app:latest
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
