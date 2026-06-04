@@ -2,8 +2,9 @@
 # Weather App – CI/CD Pipeline
 # Triggers: push to main, any pull request to main
 # Jobs:
-#   1. test  – run pytest suite
-#   2. build – build Docker image (only if tests pass)
+#   1. test     – run pytest suite
+#   2. security – bandit (code scan) + pip-audit (dependency scan)
+#   3. build    – build Docker image (only if 1 and 2 pass)
 # ============================================================
 
 name: CI Pipeline
@@ -21,6 +22,9 @@ env:
 
 jobs:
 
+  # ──────────────────────────────────────────
+  # JOB 1: Run Pytest Suite
+  # ──────────────────────────────────────────
   test:
     name: Run Tests
     runs-on: ubuntu-latest
@@ -48,10 +52,49 @@ jobs:
       - name: Run pytest
         run: python -m pytest --cov=app --cov-report=term-missing -v
 
+  # ──────────────────────────────────────────
+  # JOB 2: Security Scan
+  # Runs after tests pass
+  # Blocks Docker build if issues found
+  # ──────────────────────────────────────────
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.2.2
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5.6.0
+        with:
+          python-version: "3.12"
+
+      - name: Install security tools
+        run: pip install bandit pip-audit
+
+      # ── Bandit: Python code security scan ──
+      # -r         recursive scan
+      # -ll        fail on MEDIUM severity and above
+      # -v         verbose output
+      # --exclude  skip tests/ (test files intentionally use insecure patterns)
+      - name: Run Bandit — code security scan
+        run: bandit -r app.py -ll -v
+
+      # ── pip-audit: dependency vulnerability scan ──
+      # Checks requirements.txt against CVE databases
+      - name: Run pip-audit — dependency vulnerability scan
+        run: pip-audit -r requirements.txt
+
+  # ──────────────────────────────────────────
+  # JOB 3: Build Docker Image
+  # Only runs if BOTH test and security pass
+  # ──────────────────────────────────────────
   build:
     name: Build Docker Image
     runs-on: ubuntu-latest
-    needs: test
+    needs: security
 
     steps:
       - name: Checkout code
