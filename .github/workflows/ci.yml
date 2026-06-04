@@ -16,30 +16,26 @@ on:
     branches:
       - main
 
-# ── Opt into Node.js 24 ahead of June 16th 2026 deadline ──
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
 
-  # ──────────────────────────────────────────
-  # JOB 1: Run Pytest Suite
-  # ──────────────────────────────────────────
   test:
     name: Run Tests
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v5.6.0
         with:
           python-version: "3.12"
 
       - name: Cache pip dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v4.2.3
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
@@ -52,10 +48,6 @@ jobs:
       - name: Run pytest
         run: python -m pytest --cov=app --cov-report=term-missing -v
 
-  # ──────────────────────────────────────────
-  # JOB 2: Build Docker Image
-  # Only runs if Job 1 (test) passes
-  # ──────────────────────────────────────────
   build:
     name: Build Docker Image
     runs-on: ubuntu-latest
@@ -63,13 +55,13 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v3.10.0
 
       - name: Build Docker image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v6.16.0
         with:
           context: .
           push: false
