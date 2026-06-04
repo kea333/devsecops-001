@@ -5,9 +5,14 @@ Weather App – Flask Backend
 - Server-side rendering via Jinja2
 """
 
+# Import standard library
+import os
+
+# Import third-party libraries
+import requests
+
 from flask import Flask, render_template, request
 from datetime import datetime
-import requests
 
 app = Flask(__name__)
 
@@ -225,7 +230,9 @@ def weather():
         return err("Could not reach the weather service. Please try again.")
     except Exception as exc:
         return err(str(exc) or "An unexpected error occurred.")
-
+    
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", debug=True)
+    # debug controlled by env variable — defaults False (production safe)
+    debug_mode = os.environ.get("FLASK_DEBUG", "false").lower() == "true"
+    app.run(host="0.0.0.0", debug=debug_mode)  # nosec B104 - intentional, required for Docker networking
