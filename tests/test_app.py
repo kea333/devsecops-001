@@ -36,7 +36,7 @@ class TestRoutes:
     def test_home_returns_200(self, client):
         """Home page loads successfully."""
         response = client.get("/")
-        assert response.status_code == 200
+        assert response.status_code == 999  # deliberately wrong (200 --> 999) - breaking a test to confirm the gate works
 
     def test_home_contains_search_form(self, client):
         """Home page contains the search form."""
