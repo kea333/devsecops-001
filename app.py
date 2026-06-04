@@ -71,9 +71,8 @@ def parse_search_input(raw: str) -> tuple[str, str | None]:
         city, _, rest = sanitized.partition(",")
         country_input = rest.strip().lower()
         country_code = (
-            country_input.upper()
-            if len(country_input) == 2
-            else COUNTRY_CODE_MAP.get(country_input)
+            COUNTRY_CODE_MAP.get(country_input)
+            or (country_input.upper() if len(country_input) == 2 else None)
         )
         return city.strip(), country_code
 
@@ -119,7 +118,7 @@ def weather_background(code: int) -> str:
     if code in (45, 48):                                  return WEATHER_BACKGROUNDS["foggy"]
     if (51 <= code <= 67) or (80 <= code <= 82):          return WEATHER_BACKGROUNDS["rainy"]
     if (71 <= code <= 77) or (85 <= code <= 86):          return WEATHER_BACKGROUNDS["snowy"]
-    if code >= 95:                                        return WEATHER_BACKGROUNDS["stormy"]
+    if code in (95, 96, 99):                              return WEATHER_BACKGROUNDS["stormy"]
     return DEFAULT_BACKGROUND
 
 
