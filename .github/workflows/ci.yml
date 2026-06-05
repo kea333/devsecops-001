@@ -1,11 +1,12 @@
 # ============================================================
 # Weather App – CI/CD Pipeline
-# Triggers: push to main, any pull request to main
 # Jobs:
 #   1. test     – pytest suite
-#   2. security – bandit (code scan) + pip-audit (dependency scan)
+#   2. security – bandit + pip-audit
 #   3. build    – build Docker image, export as artifact
-#   4. trivy    – container vulnerability scan (only if build passes)
+#   4. trivy    – container vulnerability scan
+#   5. push     – push approved image to AWS ECR (main only)
+#   6. deploy   – deploy to EKS (main only)
 # ============================================================
 
 name: CI Pipeline
@@ -81,7 +82,6 @@ jobs:
 
   # ──────────────────────────────────────────
   # JOB 3: Build Docker Image
-  # Saves image as tar artifact for Trivy
   # ──────────────────────────────────────────
   build:
     name: Build Docker Image
@@ -95,7 +95,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3.10.0
 
-      # load: true puts image into local Docker daemon
       - name: Build Docker image
         uses: docker/build-push-action@v6.16.0
         with:
@@ -106,11 +105,9 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Export image so Trivy job can load it
       - name: Save Docker image as tar
         run: docker save weather-app:latest | gzip > weather-app.tar.gz
 
-      # Upload tar for Trivy job — retained for 1 day only
       - name: Upload image artifact
         uses: actions/upload-artifact@v4
         with:
@@ -120,8 +117,6 @@ jobs:
 
   # ──────────────────────────────────────────
   # JOB 4: Trivy Container Scan
-  # Blocks pipeline on CRITICAL or HIGH CVEs
-  # Only runs if build passes
   # ──────────────────────────────────────────
   trivy:
     name: Trivy Container Scan
@@ -138,7 +133,7 @@ jobs:
         run: docker load < weather-app.tar.gz
 
       - name: Run Trivy — container vulnerability scan
-        uses: aquasecurity/trivy-action@v0.36.0        # changed from v0.30.0 which had serious security flaw
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: weather-app:latest
           format: table
@@ -146,3 +141,99 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
+
+  # ──────────────────────────────────────────
+  # JOB 5: Push to AWS ECR
+  # Main branch only — OIDC auth, no stored keys
+  # ──────────────────────────────────────────
+  push:
+    name: Push to ECR
+    runs-on: ubuntu-latest
+    needs: trivy
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      id-token: write   # required for OIDC
+      contents: read
+
+    steps:
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Download image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: weather-app-image
+
+      - name: Load Docker image
+        run: docker load < weather-app.tar.gz
+
+      # Tag with both commit SHA (immutable) and latest
+      - name: Tag and push image to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker tag weather-app:latest $ECR_REGISTRY/weather-app:$IMAGE_TAG
+          docker tag weather-app:latest $ECR_REGISTRY/weather-app:latest
+          docker push $ECR_REGISTRY/weather-app:$IMAGE_TAG
+          docker push $ECR_REGISTRY/weather-app:latest
+          echo "IMAGE=$ECR_REGISTRY/weather-app:$IMAGE_TAG" >> $GITHUB_ENV
+
+  # ──────────────────────────────────────────
+  # JOB 6: Deploy to EKS
+  # Main branch only — requires EKS cluster
+  # Cluster provisioned in Part 7 (Terraform)
+  # ──────────────────────────────────────────
+  deploy:
+    name: Deploy to EKS
+    runs-on: ubuntu-latest
+    needs: push
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.2.2
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Update kubeconfig for EKS
+        run: |
+          aws eks update-kubeconfig \
+            --name ${{ secrets.EKS_CLUSTER_NAME }} \
+            --region ${{ secrets.AWS_REGION }}
+
+      # Replace IMAGE_PLACEHOLDER with real ECR image URI
+      - name: Inject image into deployment manifest
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          sed -i "s|IMAGE_PLACEHOLDER|$ECR_REGISTRY/weather-app:$IMAGE_TAG|g" \
+            kubernetes/deployment.yaml
+
+      - name: Apply Kubernetes manifests
+        run: kubectl apply -f kubernetes/
+
+      - name: Wait for rollout
+        run: kubectl rollout status deployment/weather-app --timeout=120s
+
+      - name: Confirm deployment
+        run: kubectl get pods -l app=weather-app
