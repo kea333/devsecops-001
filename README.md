@@ -390,7 +390,7 @@ def test_home_returns_200(self, client):
 Pipeline gate blocks on test failure, and is restored when script is corrected:<br>
 <br>
 
-![Pipeline failure and restoration](screenshots/08-testing- gate-after-github-actions-setup-01d.png)<br>
+![Pipeline failure and restoration](screenshots/08-testing-gate-after-github-actions-setup-01d.png)<br>
 <br>
 
 ### 5. Amazon ECR - Elastic Container Registry stores your Docker images in AWS so they can be pulled by EKS and App Runner.<br>
