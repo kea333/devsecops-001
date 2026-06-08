@@ -34,12 +34,12 @@ Any application can be dropped into this pipeline in place of the weather app - 
 
 ---
 
-## 🧩 Problem Statement
+## 🧩 Problem Statement:
 
 ![Project Architecture](screenshots/01-secure-devsecops-release-platform-architecture.png)
 <br>
 
-#### Milestone Plan
+#### Milestone Plan:
 
 1. Application Setup - Build a simple Flask web application with a home endpoint and a health check endpoint. The result is a working app that can run locally.
 
@@ -69,15 +69,15 @@ In this project, the above architecture has been implemented exactly as shown, n
 
 ```text
 
-Developer → Docker Build (local) → git push → GitHub → GitHub Actions (CI/CD)
-                                                               ↓
-                                                         Amazon ECR
-                                                        ↙           ↘
-                                                 Amazon EKS     AWS App Runner
-                                               (Kubernetes)      (Serverless)
-                                                     ↓
-                                          Prometheus + Grafana
-                                            (Observability)
+Developer → Web App Dev → Docker Build (local) → git push → GitHub → GitHub Actions (CI/CD)
+                                                                              ↓
+                                                                        Amazon ECR
+                                                                       ↙           ↘
+                                                                Amazon EKS     AWS App Runner
+                                                              (Kubernetes)      (Serverless)
+                                                                    ↓
+                                                         Prometheus + Grafana
+                                                           (Observability)
 
 ```
 
@@ -103,7 +103,7 @@ Developer → Docker Build (local) → git push → GitHub → GitHub Actions (C
 ## ✨ Features
 
 - 🔍 Search weather for any city in the world
-- 🌡️  Real-time temperature, humidity, wind speed, and UV index
+-  🌡️ Real-time temperature, humidity, wind speed, and UV index
 - 📅 4-day weather forecast
 - 🎨 Dynamic background that changes with weather conditions
 - 📦 Fully containerised with Docker
@@ -161,7 +161,7 @@ devsecops-001/
 
 ## Before AWS Cloud Deployment
 
-**Description                                        Status**
+**Description**                                    **Status**
 1. Application build                                   ✅
 2. Testing (pytest)                                    ✅
 3. Containerisation (Docker)                           ✅
@@ -221,7 +221,7 @@ terraform/                      # Not committed
 - Setting up a full observability stack with Prometheus and Grafana
 - Building automated CI/CD pipelines with GitHub Actions
 - Troubleshooting EKS authentication with IAM access entries
-* Before _terraform destroy_, make double (or triple) sure all Kubernetes-created AWS resources are well and truly cleaned up, to avoid the VPC stuck-on-deletion for ages.
+- Before _terraform destroy_, make double (or triple) sure all Kubernetes-created AWS resources are well and truly cleaned up, to avoid the VPC stuck-on-deletion for ages
 
 -----
 
@@ -246,13 +246,13 @@ Security was considered at every layer of this project - from how credentials ar
 - `.gitignore` prevents sensitive files such as `terraform.tfstate` and `.env` from being committed
 
 **IAM & Access Control**
-- The project uses a dedicated IAM user rather than the root AWS account
+- The project uses a dedicated IAM user rather than the root AWS account.
 - EKS cluster access is managed via **EKS Access Entries** - the modern and recommended approach over the legacy `aws-auth` ConfigMap
 - The App Runner service uses a dedicated IAM role (`AppRunnerECRAccessRole`) scoped only to ECR read access - it cannot access anything else in AWS
 - EKS worker node IAM roles follow least privilege - nodes can pull from ECR but have no unnecessary permissions
 
 **Identity and Access Credentials Exposure**
-- The basic error of accidental exposure of identity and access credentials such as account IDs, usernames, etc can easily occur in portfolio projects such as this one due to extensive use of screenshots. Attention has been duly paid (e.g. to constituent parts of AWS ARNs) and all such potential exposure redacted from screenshots.
+- The basic error of accidental exposure of identity and access credentials such as account IDs, usernames, etc can easily occur in portfolio projects such as this one due to extensive use of screenshots. Attention has been duly paid (e.g. to constituent parts of AWS ARNs) and all such potential exposure redacted from screenshots
 
 **Container & Registry Security**
 - Container images are stored in a **private** Amazon ECR repository - not on a public registry like Docker Hub
@@ -276,7 +276,7 @@ Security was considered at every layer of this project - from how credentials ar
 
 ### ⚠️ Known Vulnerabilities & Weaknesses
 
-These are real security gaps in the current setup. They are documented here honestly because understanding weaknesses is as important as documenting strengths.
+These are real security gaps in the current setup. They are documented here honestly because understanding weaknesses is as important as documenting strengths
 
 **Grafana Exposed Over HTTP**
 - The Grafana LoadBalancer URL runs over plain HTTP, not HTTPS - visible as "Not secure" in the browser
@@ -336,12 +336,13 @@ These are real security gaps in the current setup. They are documented here hone
 - **SAST/DAST scanning** - Static and dynamic security scanning in the GitHub Actions pipeline
 - **Kubernetes Network Policies** - Explicit allow-list for all inter-service communication
 - **Audit logging** - AWS CloudTrail + EKS audit logs shipped to CloudWatch or a SIEM
+- **Improve Pytest Coverage** - Take active measures to improve coverage to >= 90%
 
 -----
 
 ## Achieving Major Milestones
 
-### 1. Create app and run Locally without Docker
+### 1. Create app and run locally without Docker
 On localhost 127.0.0.1 , port 5000 (Flask)<br>
 <br>
 
@@ -353,6 +354,14 @@ On localhost 127.0.0.1 , port 5000 (Flask)<br>
 <br>
 
 ![Pytest checks](screenshots/04-pytest-output-report.png)<br>
+
+The 77% coverage score is normal and in this context a solid baseline from which to make improvements in subsequent code reviews .While it falls just short of the traditional 80% industry benchmark, it indicates that the vast majority of the codebase is being executed during the test suite.<br>
+Context matters - 77% coverage on a critical financial transaction module or platform is risky and might be considered unacceptable. However, 77% on a web application where the remaining 23% consists of untestable local setup files and basic error handling is fair initial trials.<br>
+Measures to improve coverage would include:<br>
+- Identify missing gaps by generating an interactive HTML coverage report to see exactly which specific lines of code are not being executed
+- Create functions to test edge cases and error paths
+- Use `# pragma: no cover` sparingly for genuinely untestable lines (e.g. if __name__ == "__main__":) to exclude them explicitly, rather than letting them drag the coverage number down
+- For a production environment, set a coverage minimum gate in ci.yml, e.g. `python -m pytest --cov=<app or project or software name> --cov-fail-under=85`<br>
 <br>
 
 ### 3. Docker - Build the Image and Run the Container 
@@ -377,7 +386,6 @@ Automated security tests:<br>
 
 Testing the Gate:<br>
 Deliberately break a test to confirm the gate works:<br>
-<br>
 
 ```text
 
@@ -393,7 +401,7 @@ Pipeline gate blocks on test failure, and is restored when script is corrected:<
 ![Pipeline failure and restoration](screenshots/08-testing-gate-after-github-actions-setup-01d.png)<br>
 <br>
 
-### 5. Amazon ECR - Elastic Container Registry stores your Docker images in AWS so they can be pulled by EKS and App Runner.<br>
+### 5. Amazon ECR - Elastic Container Registry stores Docker images in AWS so they can be pulled by EKS and App Runner.<br>
 Every push to the `main` branch automatically triggers a pipeline that builds and pushes a fresh Docker image to ECR:<br>
 <br>
 
@@ -433,7 +441,7 @@ Weather app served via App Runner:<br>
 ![App via App Runner](screenshots/14-apprunner-deployed-2.png)<br>
 <br>
 
-### 9. Monitoring - Prometheus + Grafana - deployed directly onto the EKS cluster using Helm.
+### 9. Monitoring - Prometheus & Grafana - deployed directly onto the EKS cluster using Helm.
 Prometheus deployed:<br>
 <br>
 
