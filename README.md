@@ -85,18 +85,18 @@ Developer → Web App Dev → Docker Build (local) → git push → GitHub → G
 
 ## 🛠️ Tech Stack
 
-|      Category               |           Technology                         |
-|---------------------------- |----------------------------------------------|
-| Application                 | Python, Flask                                |
-| Containerisation            | Docker                                       |
-| Container Registry          | Amazon ECR                                   |
-| Kubernetes                  | Amazon EKS (v1.32)                           |
-| Serverless Containers       | AWS App Runner                               |
-| Infrastructure as Code      | Terraform                                    |
-| Kubernetes Package Manager  | Helm                                         |
-| Monitoring & Dashboards     | Prometheus + Grafana (kube-prometheus-stack) |
-| CI/CD                       | GitHub Actions                               |
-| Cloud Provider              | AWS                                          |
+|      Category                 |           Technology                           |
+|-------------------------------|------------------------------------------------|
+| Application                   | Python, Flask                                  |
+| Containerisation              | Docker                                         |
+| Container Registry            | Amazon ECR                                     |
+| Kubernetes                    | Amazon EKS (v1.32)                             |
+| Serverless Containers         | AWS App Runner                                 |
+| Infrastructure as Code        | Terraform                                      |
+| Kubernetes Package Manager    | Helm                                           |
+| Monitoring and Dashboards     | Prometheus and Grafana (kube-prometheus-stack) |
+| CI/CD                         | GitHub Actions                                 |
+| Cloud Provider                | AWS                                            |
 
 ---
 
@@ -194,7 +194,7 @@ Provisined with Terraform:
 │    └── 2 Private subnets        (EKS nodes)
 ├── EKS Cluster                   (weather-app-cluster)
 ├── Managed Node Group            (2x t3.medium)
-└── IAM roles                     (cluster + nodes)
+└── IAM roles                     (cluster and nodes)
 
 ```
 
@@ -221,7 +221,7 @@ terraform/                      # Not committed
 - Setting up a full observability stack with Prometheus and Grafana
 - Building automated CI/CD pipelines with GitHub Actions
 - Troubleshooting EKS authentication with IAM access entries
-- Before _terraform destroy_, make double (or triple) sure all Kubernetes-created AWS resources are well and truly cleaned up, to avoid the VPC stuck-on-deletion for ages
+- Before running `terraform destroy`, make double (or triple) sure all Kubernetes-created AWS resources are well and truly cleaned up, to avoid the VPC stuck-on-deletion for ages
 
 -----
 
@@ -240,12 +240,12 @@ Security was considered at every layer of this project - from how credentials ar
 ### ✅ What Is Secured
 
 **Secrets Management**
-- AWS credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`) are stored as encrypted GitHub Actions secrets - never hardcoded in code or config files
+- AWS credentials are managed via OIDC - GitHub Actions assumes an IAM role directly using a short-lived token. No static AWS access keys are stored anywhere in the project.
 - The weather API key is passed as an environment variable at runtime, not baked into the Docker image
 - No secrets appear in the `Dockerfile`, application code, or Terraform files
 - `.gitignore` prevents sensitive files such as `terraform.tfstate` and `.env` from being committed
 
-**IAM & Access Control**
+**IAM and Access Control**
 - The project uses a dedicated IAM user rather than the root AWS account.
 - EKS cluster access is managed via **EKS Access Entries** - the modern and recommended approach over the legacy `aws-auth` ConfigMap
 - The App Runner service uses a dedicated IAM role (`AppRunnerECRAccessRole`) scoped only to ECR read access - it cannot access anything else in AWS
@@ -254,7 +254,7 @@ Security was considered at every layer of this project - from how credentials ar
 **Identity and Access Credentials Exposure**
 - The basic error of accidental exposure of identity and access credentials such as account IDs, usernames, etc can easily occur in portfolio projects such as this one due to extensive use of screenshots. Attention has been duly paid (e.g. to constituent parts of AWS ARNs) and all such potential exposure redacted from screenshots
 
-**Container & Registry Security**
+**Container and Registry Security**
 - Container images are stored in a **private** Amazon ECR repository - not on a public registry like Docker Hub
 - Images are tagged with both `latest` and the **Git commit SHA**, making every build traceable and immutable
 - ECR provides built-in image scanning for known OS and dependency vulnerabilities on push
@@ -274,7 +274,7 @@ Security was considered at every layer of this project - from how credentials ar
 
 -----
 
-### ⚠️ Known Vulnerabilities & Weaknesses
+### ⚠️ Known Vulnerabilities and Weaknesses
 
 These are real security gaps in the current setup. They are documented here honestly because understanding weaknesses is as important as documenting strengths
 
@@ -284,8 +284,7 @@ These are real security gaps in the current setup. They are documented here hone
 - **Fix:** Configure a TLS certificate via AWS Certificate Manager and attach it to the LoadBalancer, or use an NGINX ingress with cert-manager
 
 **Weak Grafana Password**
-- The Grafana admin password (`admin123`) is set at install time via a Helm flag and is not strong
-- It is also visible in the `helm install` command in this README
+- The Grafana admin password is set at install time via a Helm flag and is not strong. It is documented in the Known Vulnerabilities section above without being disclosed here
 - **Fix:** Use a Kubernetes Secret to pass the password, and enforce a strong randomly generated value in production
 
 **Prometheus Has No Authentication**
@@ -330,17 +329,17 @@ These are real security gaps in the current setup. They are documented here hone
 
 - **HTTPS everywhere** - TLS on Grafana and all internal services via cert-manager
 - **Secrets Manager** - AWS Secrets Manager or HashiCorp Vault for runtime secret injection
-- **Remote Terraform state** - S3 + DynamoDB backend with state locking
+- **Remote Terraform state** - S3 and DynamoDB backend with state locking
 - **IRSA (IAM Roles for Service Accounts)** - Fine-grained IAM permissions per Kubernetes pod, not per node
 - **Image signing** - Cosign or AWS Signer to verify image integrity before deployment
 - **SAST/DAST scanning** - Static and dynamic security scanning in the GitHub Actions pipeline
 - **Kubernetes Network Policies** - Explicit allow-list for all inter-service communication
-- **Audit logging** - AWS CloudTrail + EKS audit logs shipped to CloudWatch or a SIEM
+- **Audit logging** - AWS CloudTrail and EKS audit logs shipped to CloudWatch or a SIEM
 - **Improve Pytest Coverage** - Take active measures to improve coverage to >= 90%
 
 -----
 
-## Achieving Major Milestones
+## 🏆 Achieving Major Milestones
 
 ### 1. Create app and run locally without Docker
 On localhost 127.0.0.1 , port 5000 (Flask)<br>
@@ -356,12 +355,13 @@ On localhost 127.0.0.1 , port 5000 (Flask)<br>
 ![Pytest checks](screenshots/04-pytest-output-report.png)<br>
 
 The 77% coverage score is normal and in this context a solid baseline from which to make improvements in subsequent code reviews .While it falls just short of the traditional 80% industry benchmark, it indicates that the vast majority of the codebase is being executed during the test suite.<br>
-Context matters - 77% coverage on a critical financial transaction module or platform is risky and might be considered unacceptable. However, 77% on a web application where the remaining 23% consists of untestable local setup files and basic error handling is fair initial trials.<br>
+Context matters - 77% coverage on a critical financial transaction module or platform is risky and might be considered unacceptable. However, 77% on a web application where the remaining 23% consists of untestable local setup files and basic error handling is fair for initial trials.<br>
 Measures to improve coverage would include:<br>
 - Identify missing gaps by generating an interactive HTML coverage report to see exactly which specific lines of code are not being executed
 - Create functions to test edge cases and error paths
-- Use `# pragma: no cover` sparingly for genuinely untestable lines (e.g. if __name__ == "__main__":) to exclude them explicitly, rather than letting them drag the coverage number down
-- For a production environment, set a coverage minimum gate in ci.yml, e.g. `python -m pytest --cov=<app or project or software name> --cov-fail-under=85`<br>
+- Use `# pragma: no cover` sparingly for genuinely untestable lines (e.g. `if __name__ == "__main__":` ) to exclude them explicitly, rather than letting them drag the coverage number down
+- For a production environment, set a coverage minimum gate in ci.yml, e.g.<br>
+ `python -m pytest --cov=<app or project or software name> --cov-fail-under=85`<br>
 <br>
 
 ### 3. Docker - Build the Image and Run the Container 
@@ -441,7 +441,7 @@ Weather app served via App Runner:<br>
 ![App via App Runner](screenshots/14-apprunner-deployed-2.png)<br>
 <br>
 
-### 9. Monitoring - Prometheus & Grafana - deployed directly onto the EKS cluster using Helm.
+### 9. Monitoring - Prometheus and Grafana - deployed directly onto the EKS cluster using Helm.
 Prometheus deployed:<br>
 <br>
 
@@ -459,3 +459,20 @@ Infrastructure monitoring - disk and network:<br>
 <br>
 
 ![Infrastructure monitoring - disk and network](screenshots/17-prometheus-and-grafana-installation-10.png)<br>
+<br>
+
+### 11. App Runner Deployment Automated - From Manual Console to GitHub Actions CI/CD Pipeline (Job 7)
+App Runner was initially deployed manually via the AWS Console to validate the setup. Having confirmed it works, deployment is now fully automated - triggered automatically on every push to main via Job 7 in the CI/CD pipeline:<br>
+<br>
+
+![AppRunner automation - Pipeline run #29](screenshots/18-apprunner-cicd-deploy-job7-2.png)<br>
+_\*At this stage, deploy to EKS is intentionally skipped - that is because EKS cluster has been torn down for cost control. When desirable, it is easily re-enabled by setting `EKS_ENABLED` to `true` once the cluster is reprovisioned via Terraform*_
+
+<br>
+
+![AppRunner automation - AWS console screenshot](screenshots/19-apprunner-cicd-deploy-job7-3.png)
+-----
+
+### Acknowledgement
+
+> Thank you to [Sathish Chandra Boini](https://www.linkedin.com/in/hackerpreneur/) for the _Problem Statement_ and direction.
