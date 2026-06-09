@@ -221,7 +221,7 @@ terraform/                      # Not committed
 - Setting up a full observability stack with Prometheus and Grafana
 - Building automated CI/CD pipelines with GitHub Actions
 - Troubleshooting EKS authentication with IAM access entries
-- Before _terraform destroy_, make double (or triple) sure all Kubernetes-created AWS resources are well and truly cleaned up, to avoid the VPC stuck-on-deletion for ages
+- Before running `terraform destroy`, make double (or triple) sure all Kubernetes-created AWS resources are well and truly cleaned up, to avoid the VPC stuck-on-deletion for ages
 
 -----
 
@@ -461,8 +461,18 @@ Infrastructure monitoring - disk and network:<br>
 ![Infrastructure monitoring - disk and network](screenshots/17-prometheus-and-grafana-installation-10.png)<br>
 <br>
 
+### 11. App Runner Deployment Automated - From Manual Console to GitHub Actions CI/CD Pipeline (Job 7)
+App Runner was initially deployed manually via the AWS Console to validate the setup. Having confirmed it works, deployment is now fully automated - triggered automatically on every push to main via Job 7 in the CI/CD pipeline:<br>
+<br>
+
+![AppRunner automation - Pipeline run #29](screenshot/18-apprunner-cicd-deploy-job7-2.png)<br>
+_\*At this stage, deploy to EKS is intentionally skipped - EKS cluster torn down for cost control. When desirable, it is easily re-enabled by setting `EKS_ENABLED` to `true` once the cluster is reprovisioned via Terraform*
+
+<br>
+
+![AppRunner automation - AWS console screenshot](screenshots/19-apprunner-cicd-deploy-job7-3.png)
 -----
 
 ### Acknowledgement
 
-> Thank you to [Sathish Chandra Boini](https://www.linkedin.com/in/hackerpreneur/) for all the guidance.
+> Thank you to [Sathish Chandra Boini](https://www.linkedin.com/in/hackerpreneur/) for all the direction.
