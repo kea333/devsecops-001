@@ -240,7 +240,7 @@ Security was considered at every layer of this project - from how credentials ar
 ### ✅ What Is Secured
 
 **Secrets Management**
-- AWS credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`) are stored as encrypted GitHub Actions secrets - never hardcoded in code or config files
+- AWS credentials are managed via OIDC — GitHub Actions assumes an IAM role directly using a short-lived token. No static AWS access keys are stored anywhere in the project.
 - The weather API key is passed as an environment variable at runtime, not baked into the Docker image
 - No secrets appear in the `Dockerfile`, application code, or Terraform files
 - `.gitignore` prevents sensitive files such as `terraform.tfstate` and `.env` from being committed
@@ -284,8 +284,7 @@ These are real security gaps in the current setup. They are documented here hone
 - **Fix:** Configure a TLS certificate via AWS Certificate Manager and attach it to the LoadBalancer, or use an NGINX ingress with cert-manager
 
 **Weak Grafana Password**
-- The Grafana admin password (`admin123`) is set at install time via a Helm flag and is not strong
-- It is also visible in the `helm install` command in this README
+- The Grafana admin password is set at install time via a Helm flag and is not strong. It is documented in the Known Vulnerabilities section above without being disclosed here
 - **Fix:** Use a Kubernetes Secret to pass the password, and enforce a strong randomly generated value in production
 
 **Prometheus Has No Authentication**
@@ -356,12 +355,13 @@ On localhost 127.0.0.1 , port 5000 (Flask)<br>
 ![Pytest checks](screenshots/04-pytest-output-report.png)<br>
 
 The 77% coverage score is normal and in this context a solid baseline from which to make improvements in subsequent code reviews .While it falls just short of the traditional 80% industry benchmark, it indicates that the vast majority of the codebase is being executed during the test suite.<br>
-Context matters - 77% coverage on a critical financial transaction module or platform is risky and might be considered unacceptable. However, 77% on a web application where the remaining 23% consists of untestable local setup files and basic error handling is fair initial trials.<br>
+Context matters - 77% coverage on a critical financial transaction module or platform is risky and might be considered unacceptable. However, 77% on a web application where the remaining 23% consists of untestable local setup files and basic error handling is fair for initial trials.<br>
 Measures to improve coverage would include:<br>
 - Identify missing gaps by generating an interactive HTML coverage report to see exactly which specific lines of code are not being executed
 - Create functions to test edge cases and error paths
-- Use `# pragma: no cover` sparingly for genuinely untestable lines (e.g. if __name__ == "__main__":) to exclude them explicitly, rather than letting them drag the coverage number down
-- For a production environment, set a coverage minimum gate in ci.yml, e.g. `python -m pytest --cov=<app or project or software name> --cov-fail-under=85`<br>
+- Use `# pragma: no cover` sparingly for genuinely untestable lines (e.g. `if __name__ == "__main__":` ) to exclude them explicitly, rather than letting them drag the coverage number down
+- For a production environment, set a coverage minimum gate in ci.yml, e.g.<br>
+ `python -m pytest --cov=<app or project or software name> --cov-fail-under=85`<br>
 <br>
 
 ### 3. Docker - Build the Image and Run the Container 
@@ -459,3 +459,10 @@ Infrastructure monitoring - disk and network:<br>
 <br>
 
 ![Infrastructure monitoring - disk and network](screenshots/17-prometheus-and-grafana-installation-10.png)<br>
+<br>
+
+-----
+
+### Acknowledgement
+
+> Thank you to [Sathish Chandra Boini](https://www.linkedin.com/in/hackerpreneur/) for all the guidance.

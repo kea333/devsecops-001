@@ -1,12 +1,13 @@
 # ============================================================
 # Weather App – CI/CD Pipeline
 # Jobs:
-#   1. test     – pytest suite
-#   2. security – bandit + pip-audit
-#   3. build    – build Docker image, export as artifact
-#   4. trivy    – container vulnerability scan
-#   5. push     – push approved image to AWS ECR (main only)
-#   6. deploy   – deploy to EKS (main only)
+#   1. test             – pytest suite
+#   2. security         – bandit + pip-audit
+#   3. build            – build Docker image, export as artifact
+#   4. trivy            – container vulnerability scan
+#   5. push             – push approved image to AWS ECR (main only)
+#   6. deploy           – deploy to EKS (main only)
+#   7. deploy-apprunner – deploy to AWS App Runner (main only)
 # ============================================================
 
 name: CI Pipeline
@@ -152,7 +153,7 @@ jobs:
     needs: trivy
     if: github.ref == 'refs/heads/main'
     permissions:
-      id-token: write   # required for OIDC
+      id-token: write
       contents: read
 
     steps:
@@ -174,7 +175,6 @@ jobs:
       - name: Load Docker image
         run: docker load < weather-app.tar.gz
 
-      # Tag with both commit SHA (immutable) and latest
       - name: Tag and push image to ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -220,7 +220,6 @@ jobs:
             --name ${{ secrets.EKS_CLUSTER_NAME }} \
             --region ${{ secrets.AWS_REGION }}
 
-      # Replace IMAGE_PLACEHOLDER with real ECR image URI
       - name: Inject image into deployment manifest
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -237,3 +236,78 @@ jobs:
 
       - name: Confirm deployment
         run: kubectl get pods -l app=weather-app
+
+  # ──────────────────────────────────────────
+  # JOB 7: Deploy to AWS App Runner
+  # Main branch only — runs in parallel with EKS deploy
+  # Gated by APP_RUNNER_ENABLED repo variable
+  # Requires secret: APP_RUNNER_SERVICE_ARN
+  # IAM role must include apprunner:UpdateService +
+  #   apprunner:DescribeService permissions
+  # Auto-deploy on App Runner service must be DISABLED
+  #   — GitHub Actions is the sole deploy trigger
+  # ──────────────────────────────────────────
+  deploy-apprunner:
+    name: Deploy to App Runner
+    runs-on: ubuntu-latest
+    needs: push
+    if: github.ref == 'refs/heads/main' && vars.APP_RUNNER_ENABLED == 'true'
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Deploy new image to App Runner
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          aws apprunner update-service \
+            --service-arn ${{ secrets.APP_RUNNER_SERVICE_ARN }} \
+            --source-configuration "{
+              \"ImageRepository\": {
+                \"ImageIdentifier\": \"$ECR_REGISTRY/weather-app:$IMAGE_TAG\",
+                \"ImageRepositoryType\": \"ECR\",
+                \"ImageConfiguration\": {
+                  \"Port\": \"5000\"
+                }
+              }
+            }"
+
+      - name: Wait for App Runner deployment to complete
+        run: |
+          echo "Polling App Runner service status (max 240s)..."
+          for i in $(seq 1 24); do
+            STATUS=$(aws apprunner describe-service \
+              --service-arn ${{ secrets.APP_RUNNER_SERVICE_ARN }} \
+              --query 'Service.Status' \
+              --output text)
+            echo "Attempt $i/24 — Status: $STATUS"
+            if [ "$STATUS" = "RUNNING" ]; then
+              echo "App Runner deployment successful."
+              exit 0
+            elif [ "$STATUS" = "CREATE_FAILED" ] || [ "$STATUS" = "UPDATE_FAILED" ]; then
+              echo "App Runner deployment failed — Status: $STATUS"
+              exit 1
+            fi
+            sleep 10
+          done
+          echo "Timed out after 240s"
+          exit 1
+
+      - name: Confirm App Runner service URL
+        run: |
+          aws apprunner describe-service \
+            --service-arn ${{ secrets.APP_RUNNER_SERVICE_ARN }} \
+            --query 'Service.ServiceUrl' \
+            --output text
