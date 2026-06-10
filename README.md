@@ -465,8 +465,8 @@ Infrastructure monitoring - disk and network:<br>
 App Runner was initially deployed manually via the AWS Console to validate the setup. Having confirmed it works, deployment is now fully automated - triggered automatically on every push to main via Job 7 in the CI/CD pipeline:<br>
 <br>
 
-![AppRunner automation - Pipeline run #29](screenshot/18-apprunner-cicd-deploy-job7-2.png)<br>
-_\*At this stage, deploy to EKS is intentionally skipped - EKS cluster torn down for cost control. When desirable, it is easily re-enabled by setting `EKS_ENABLED` to `true` once the cluster is reprovisioned via Terraform*
+![AppRunner automation - Pipeline run #29](screenshots/18-apprunner-cicd-deploy-job7-2.png)<br>
+_\*At this stage, deploy to EKS is intentionally skipped - that is because EKS cluster has been torn down for cost control. When desirable, it is easily re-enabled by setting `EKS_ENABLED` to `true` once the cluster is reprovisioned via Terraform*_
 
 <br>
 
