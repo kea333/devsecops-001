@@ -471,7 +471,14 @@ _\*At this stage, deploy to EKS is intentionally skipped - that is because EKS c
 <br>
 
 ![AppRunner automation - AWS console screenshot](screenshots/19-apprunner-cicd-deploy-job7-3.png)
------
+
+---
+
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-blue?logo=linkedin)](https://linkedin.com/in/kweku-esuon-acquaye-487a7a44)
+[![GitHub](https://img.shields.io/badge/GitHub-kea333-black?logo=github)](https://github.com/kea333)<br>
+💼 [Projects Portfolio](https://webint.tech/)
+
+---
 
 ### Acknowledgement
 
