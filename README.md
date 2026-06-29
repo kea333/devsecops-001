@@ -9,7 +9,7 @@
 
 # 🌤️ Weather App - Cloud-Native Deployment on AWS
 
-A Python Flask weather application containerised with Docker and deployed using multiple AWS services. This project demonstrates containerisation, Infrastructure as Code (IoC), Kubernetes orchestration, serverless container hosting, and real-time cluster observability.<br>
+A Python Flask weather application containerised with Docker and deployed using multiple AWS services. This project demonstrates containerisation, Infrastructure as Code (IaC), Kubernetes orchestration, serverless container hosting, and real-time cluster observability.<br>
 <br>
 
 The project is originally intended as a team collaboration effort with seven other former AWS reStart cohort mates. The task was given as an architecture diagram (the first one below) together with an 8-milestone build plan. In this repo, I have attempted an individual implementation ahead of the group build for the purpose of familiarising myself and learning as much as possible, so that I am not utterly clueless when the team collaboration begins, but can contribute meaningfully.<br>
@@ -124,7 +124,7 @@ Developer → Web App Dev → Docker Build (local) → git push → GitHub → G
 | kubectl         | Manage Kubernetes cluster   |
 | Helm            | Install Kubernetes packages |
 | AWS Account     | Deploy all resources        |
-| Weather API Key | Fetch live weather data     |
+| Open-Meteo      | Requires no API key         |
 
 ---
 
@@ -240,8 +240,8 @@ Security was considered at every layer of this project - from how credentials ar
 ### ✅ What Is Secured
 
 **Secrets Management**
-- AWS credentials are managed via OIDC - GitHub Actions assumes an IAM role directly using a short-lived token. No static AWS access keys are stored anywhere in the project.
-- The weather API key is passed as an environment variable at runtime, not baked into the Docker image
+- AWS credentials are managed via OIDC - GitHub Actions assumes an IAM role directly using a short-lived token. No static AWS access keys are stored anywhere in the project
+- The app uses Open-Meteo, a free and open-source weather API that requires no API key. Assuch, there are no credentials to manage or protect
 - No secrets appear in the `Dockerfile`, application code, or Terraform files
 - `.gitignore` prevents sensitive files such as `terraform.tfstate` and `.env` from being committed
 
@@ -354,8 +354,8 @@ On localhost 127.0.0.1 , port 5000 (Flask)<br>
 
 ![Pytest checks](screenshots/04-pytest-output-report.png)<br>
 
-The 77% coverage score is normal and in this context a solid baseline from which to make improvements in subsequent code reviews .While it falls just short of the traditional 80% industry benchmark, it indicates that the vast majority of the codebase is being executed during the test suite.<br>
-Context matters - 77% coverage on a critical financial transaction module or platform is risky and might be considered unacceptable. However, 77% on a web application where the remaining 23% consists of untestable local setup files and basic error handling is fair for initial trials.<br>
+The 77% coverage score is normal and in this context a solid baseline from which to make improvements in subsequent code reviews. While it falls just short of the traditional 80% industry benchmark, it indicates that the vast majority of the codebase is being executed during the test suite.<br>
+Context matters - 77% coverage on a critical financial transaction module or platform is risky and likely be considered unacceptable. However, 77% on a web application where the remaining 23% consists of untestable local setup files and basic error handling is fair for initial trials. It is worth noting that coverage figures change as code evolves.<br>
 Measures to improve coverage would include:<br>
 - Identify missing gaps by generating an interactive HTML coverage report to see exactly which specific lines of code are not being executed
 - Create functions to test edge cases and error paths
@@ -377,7 +377,7 @@ Weather app runs smoothly in container:<br>
 ![App runs in container](screenshots/06-container-run-confirm-2c.png)<br>
 <br>
 
-### 4. Security Scanning (Bandit + pip-audit + Trivy)
+### 4. Security Scanning - Tests Passed
 Automated security tests:<br>
 <br>
 
@@ -401,7 +401,7 @@ Pipeline gate blocks on test failure, and is restored when script is corrected:<
 ![Pipeline failure and restoration](screenshots/08-testing-gate-after-github-actions-setup-01d.png)<br>
 <br>
 
-### 5. Amazon ECR - Elastic Container Registry stores Docker images in AWS so they can be pulled by EKS and App Runner.<br>
+### 5. Amazon ECR - Elastic Container Registry stores Docker images in AWS so they can be pulled by EKS and App Runner<br>
 Every push to the `main` branch automatically triggers a pipeline that builds and pushes a fresh Docker image to ECR:<br>
 <br>
 
@@ -441,14 +441,14 @@ Weather app served via App Runner:<br>
 ![App via App Runner](screenshots/14-apprunner-deployed-2.png)<br>
 <br>
 
-### 9. Monitoring - Prometheus and Grafana - deployed directly onto the EKS cluster using Helm.
+### 9. Monitoring - Prometheus and Grafana - deployed directly onto the EKS cluster using Helm
 Prometheus deployed:<br>
 <br>
 
 ![Prometheus deployed](screenshots/15-prometheus-and-grafana-installation-1.png)<br>
 <br>
 
-### 10. Log Into Grafana to monitor cloud-native environment and application.
+### 10. Log Into Grafana to monitor cloud-native environment and application
 Infrastructure monitoring - CPU and memory:<br>
 <br>
 
